@@ -43,7 +43,7 @@ final readonly class Psr1Utf8WithoutBomRule implements FileAnalysisRuleInterface
     public function evaluateProjectAll(string $basePath, Architecture $architecture, array $skipPaths = []): array
     {
         return $this->evaluateFiles(
-            $this->phpFileFinder->files($basePath, $skipPaths),
+            $this->phpFileFinder->files($basePath, $architecture, $skipPaths),
             new FileAnalysisProvider(),
         );
     }
@@ -61,6 +61,7 @@ final readonly class Psr1Utf8WithoutBomRule implements FileAnalysisRuleInterface
         return $this->evaluateFiles(
             $this->phpFileFinder->filesFromScope(
                 $basePath,
+                $architecture,
                 $fileAnalysisProvider->scopeFiles(),
                 $skipPaths,
             ),

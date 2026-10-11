@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Boundwize\StructArmed\Rule\Rules\File;
 
+use Boundwize\StructArmed\Architecture;
 use Boundwize\StructArmed\Composer\Psr4PathResolver;
 use Boundwize\StructArmed\File\PhpFileCollector;
 use Boundwize\StructArmed\File\SkipPathMatcher;
@@ -16,6 +17,9 @@ use function is_dir;
 use function str_ends_with;
 use function str_starts_with;
 
+/**
+ * @internal
+ */
 final readonly class PhpFileFinder
 {
     /**
@@ -32,9 +36,9 @@ final readonly class PhpFileFinder
      * @param list<string> $skipPaths
      * @return list<string>
      */
-    public function files(string $basePath, array $skipPaths = []): array
+    public function files(string $basePath, Architecture $architecture, array $skipPaths = []): array
     {
-        $sourcePaths     = $this->sourcePaths($basePath);
+        $sourcePaths     = $this->sourcePaths($basePath, $architecture);
         $skipPathMatcher = SkipPathMatcher::compile($basePath, $skipPaths);
         $files           = [];
 
@@ -64,13 +68,14 @@ final readonly class PhpFileFinder
      */
     public function filesFromScope(
         string $basePath,
+        Architecture $architecture,
         array $scopeFiles,
         array $skipPaths = [],
     ): array {
         $skipPathMatcher   = SkipPathMatcher::compile($basePath, $skipPaths);
         $directoryPrefixes = [];
 
-        foreach ($this->sourcePaths($basePath) as $sourcePath) {
+        foreach ($this->sourcePaths($basePath, $architecture) as $sourcePath) {
             $directoryPrefixes[] = Path::normalise(Path::resolve($sourcePath, $basePath), canonicalise: true) . '/';
         }
 
@@ -102,13 +107,33 @@ final readonly class PhpFileFinder
         return array_keys($files);
     }
 
-    /** @return list<string> */
-    private function sourcePaths(string $basePath): array
+    /**
+     * Without own source paths the finder follows the Analyser: a 'Source'
+     * layer the architecture defines bounds the files, and only an undefined
+     * or empty one falls back to the composer.json PSR-4 paths.
+     *
+     * @return list<string>
+     */
+    private function sourcePaths(string $basePath, Architecture $architecture): array
     {
-        if ($this->sourcePaths === null) {
+        $sourcePaths = $this->sourcePaths ?? $this->definedSourcePaths($architecture);
+
+        if ($sourcePaths === null) {
             return $this->psr4PathResolver->paths($basePath);
         }
 
-        return array_values(array_unique($this->sourcePaths));
+        return array_values(array_unique($sourcePaths));
+    }
+
+    /** @return list<string>|null */
+    private function definedSourcePaths(Architecture $architecture): ?array
+    {
+        $sourcePaths = $architecture->getLayers()['Source'] ?? null;
+
+        if ($sourcePaths === null || $sourcePaths === []) {
+            return null;
+        }
+
+        return (array) $sourcePaths;
     }
 }
