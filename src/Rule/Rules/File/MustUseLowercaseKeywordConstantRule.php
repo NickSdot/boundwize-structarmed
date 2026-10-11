@@ -48,7 +48,7 @@ final readonly class MustUseLowercaseKeywordConstantRule extends AbstractPhpPars
      */
     public function evaluateProjectAll(string $basePath, Architecture $architecture, array $skipPaths = []): array
     {
-        $files = $this->phpFileFinder->files($basePath, $skipPaths);
+        $files = $this->phpFileFinder->files($basePath, $skipPaths, $architecture);
 
         // Outside the analyser the spellings come from the same traversal it
         // runs, so there is a single place that recognises them.
@@ -72,6 +72,7 @@ final readonly class MustUseLowercaseKeywordConstantRule extends AbstractPhpPars
                 $basePath,
                 $fileAnalysisProvider->scopeFiles(),
                 $skipPaths,
+                $architecture,
             ),
             $fileAnalysisProvider,
         );

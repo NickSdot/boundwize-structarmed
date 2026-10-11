@@ -55,7 +55,7 @@ final readonly class Psr1PhpTagsRule implements FileAnalysisRuleInterface, Fixab
     public function evaluateProjectAll(string $basePath, Architecture $architecture, array $skipPaths = []): array
     {
         return $this->evaluateFiles(
-            $this->phpFileFinder->files($basePath, $skipPaths),
+            $this->phpFileFinder->files($basePath, $skipPaths, $architecture),
             new FileAnalysisProvider(),
         );
     }
@@ -75,6 +75,7 @@ final readonly class Psr1PhpTagsRule implements FileAnalysisRuleInterface, Fixab
                 $basePath,
                 $fileAnalysisProvider->scopeFiles(),
                 $skipPaths,
+                $architecture,
             ),
             $fileAnalysisProvider,
         );

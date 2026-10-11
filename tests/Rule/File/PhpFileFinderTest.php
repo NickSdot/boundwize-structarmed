@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Boundwize\StructArmed\Tests\Rule\File;
 
+use Boundwize\StructArmed\Architecture;
 use Boundwize\StructArmed\Rule\Rules\File\PhpFileFinder;
 use Boundwize\StructArmed\Tests\Support\TemporaryDirectoryCleanupTrait;
 use Boundwize\StructArmed\Util\Path;
@@ -84,6 +85,40 @@ final class PhpFileFinderTest extends TestCase
                 Path::normalise($basePath . '/tests/FooTest.php', canonicalise: true),
             ],
             $filtered,
+        );
+    }
+
+    public function testPrefersDefinedSourceLayerOverComposerPsr4PathsByDefault(): void
+    {
+        $basePath = $this->makeTemporaryDirectory('structarmed-php-file-finder');
+        mkdir($basePath . '/src');
+        mkdir($basePath . '/tests');
+
+        file_put_contents($basePath . '/composer.json', <<<'JSON'
+            {
+                "autoload": {"psr-4": {"App\\": "src/"}},
+                "autoload-dev": {"psr-4": {"App\\Tests\\": "tests/"}}
+            }
+            JSON);
+        file_put_contents($basePath . '/src/Foo.php', '<?php');
+        file_put_contents($basePath . '/tests/FooTest.php', '<?php');
+
+        $scopeFiles    = [$basePath . '/src/Foo.php', $basePath . '/tests/FooTest.php'];
+        $sourceFile    = Path::normalise($basePath . '/src/Foo.php', canonicalise: true);
+        $architecture  = Architecture::define()->layer('Source', 'src');
+        $phpFileFinder = new PhpFileFinder();
+
+        $this->assertSame([$sourceFile], $phpFileFinder->files($basePath, [], $architecture));
+        $this->assertSame(
+            [$sourceFile],
+            $phpFileFinder->filesFromScope($basePath, $scopeFiles, [], $architecture),
+        );
+
+        // An empty Source layer is synthesised from composer.json by the
+        // Analyser, so the finder keeps the same PSR-4 fallback for it.
+        $this->assertCount(
+            2,
+            $phpFileFinder->filesFromScope($basePath, $scopeFiles, [], Architecture::define()->layer('Source', [])),
         );
     }
 

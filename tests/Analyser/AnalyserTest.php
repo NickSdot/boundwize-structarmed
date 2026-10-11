@@ -18,6 +18,7 @@ use Boundwize\StructArmed\Cache\FileHashProvider;
 use Boundwize\StructArmed\File\PhpFileCollector;
 use Boundwize\StructArmed\File\SkipPathMatcher;
 use Boundwize\StructArmed\Preset\Preset;
+use Boundwize\StructArmed\Preset\Presets\CodeQualityPreset;
 use Boundwize\StructArmed\Preset\Presets\DddPreset;
 use Boundwize\StructArmed\Preset\Presets\MvcPreset;
 use Boundwize\StructArmed\Preset\Presets\Psr12Preset;
@@ -2762,6 +2763,71 @@ final class AnalyserTest extends TestCase
             ->analyse($architecture, [], null, AnalyserOptions::parallel());
 
         $this->assertFalse($ruleViolationCollection->hasViolations());
+    }
+
+    public function testCodeQualityPresetWithoutSourcePathsStaysInsideDefinedSourceLayer(): void
+    {
+        $code = <<<'PHP'
+            <?php
+
+            namespace %s;
+
+            final class %s
+            {
+                public function run(): int
+                {
+                    $resolve = function (): int {
+                        return 1000000;
+                    };
+
+                    return $resolve();
+                }
+            }
+            PHP;
+
+        $basePath = $this->makeTempProject([
+            'composer.json'     => <<<'JSON'
+                {
+                    "autoload": {"psr-4": {"App\\": "src/"}},
+                    "autoload-dev": {"psr-4": {"App\\Tests\\": "tests/"}}
+                }
+                JSON,
+            'src/Foo.php'       => sprintf($code, 'App', 'Foo'),
+            'tests/FooTest.php' => sprintf($code, 'App\\Tests', 'FooTest'),
+        ]);
+
+        // tests/ enters the scan scope only through YAGNI; the code quality
+        // preset was left to the user-defined Source layer.
+        $architecture = Architecture::define()
+            ->layer('Source', 'src')
+            ->withPresets(
+                Preset::PSR4(),
+                Preset::CODEQUALITY(),
+                Preset::YAGNI(sourcePaths: ['src', 'tests']),
+            );
+
+        $ruleViolationCollection = (new Analyser($basePath))
+            ->analyse($architecture, [], null, AnalyserOptions::sequential());
+        $realBasePath            = $this->normalisePath((string) realpath($basePath));
+
+        foreach (
+            [
+                CodeQualityPreset::LARGE_NUMERIC_LITERALS_MUST_USE_SEPARATOR,
+                CodeQualityPreset::ANONYMOUS_FUNCTIONS_MUST_BE_STATIC,
+            ] as $ruleKey
+        ) {
+            $files = array_map(
+                fn (RuleViolation $ruleViolation): string => str_replace(
+                    $realBasePath . '/',
+                    '',
+                    $this->normalisePath($ruleViolation->file)
+                ),
+                $ruleViolationCollection->forRule($ruleKey)
+            );
+            sort($files);
+
+            $this->assertSame(['src/Foo.php'], $files, $ruleKey);
+        }
     }
 
     public function testMustBeFinalRuleReportsSameExtendedClassesOnCachedRun(): void

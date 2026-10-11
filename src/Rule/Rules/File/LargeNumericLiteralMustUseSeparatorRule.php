@@ -58,7 +58,7 @@ final readonly class LargeNumericLiteralMustUseSeparatorRule extends AbstractPhp
      */
     public function evaluateProjectAll(string $basePath, Architecture $architecture, array $skipPaths = []): array
     {
-        $files            = $this->phpFileFinder->files($basePath, $skipPaths);
+        $files            = $this->phpFileFinder->files($basePath, $skipPaths, $architecture);
         $extractionResult = (new AnalysisNodeExtractor())->extract($files);
 
         return $this->evaluateFiles($files, new FileAnalysisProvider($extractionResult->fileAnalyses));
@@ -79,6 +79,7 @@ final readonly class LargeNumericLiteralMustUseSeparatorRule extends AbstractPhp
                 $basePath,
                 $fileAnalysisProvider->scopeFiles(),
                 $skipPaths,
+                $architecture,
             ),
             $fileAnalysisProvider,
         );
