@@ -327,7 +327,7 @@ final class Psr1PhpTagsRuleTest extends TestCase
                 $analysisBasePath = $linkedBasePath;
             }
 
-            $files = (new PhpFileFinder(['src/']))->files($basePath);
+            $files = (new PhpFileFinder(['src/']))->files($basePath, Architecture::define());
 
             $this->assertCount(1, $files);
             $this->assertStringEndsWith('/src/Foo.php', str_replace('\\', '/', $files[0]));

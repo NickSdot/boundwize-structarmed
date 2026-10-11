@@ -17,6 +17,9 @@ use function is_dir;
 use function str_ends_with;
 use function str_starts_with;
 
+/**
+ * @internal
+ */
 final readonly class PhpFileFinder
 {
     /**
@@ -33,7 +36,7 @@ final readonly class PhpFileFinder
      * @param list<string> $skipPaths
      * @return list<string>
      */
-    public function files(string $basePath, array $skipPaths = [], ?Architecture $architecture = null): array
+    public function files(string $basePath, Architecture $architecture, array $skipPaths = []): array
     {
         $sourcePaths     = $this->sourcePaths($basePath, $architecture);
         $skipPathMatcher = SkipPathMatcher::compile($basePath, $skipPaths);
@@ -65,9 +68,9 @@ final readonly class PhpFileFinder
      */
     public function filesFromScope(
         string $basePath,
+        Architecture $architecture,
         array $scopeFiles,
         array $skipPaths = [],
-        ?Architecture $architecture = null,
     ): array {
         $skipPathMatcher   = SkipPathMatcher::compile($basePath, $skipPaths);
         $directoryPrefixes = [];
@@ -111,7 +114,7 @@ final readonly class PhpFileFinder
      *
      * @return list<string>
      */
-    private function sourcePaths(string $basePath, ?Architecture $architecture): array
+    private function sourcePaths(string $basePath, Architecture $architecture): array
     {
         $sourcePaths = $this->sourcePaths ?? $this->definedSourcePaths($architecture);
 
@@ -123,9 +126,9 @@ final readonly class PhpFileFinder
     }
 
     /** @return list<string>|null */
-    private function definedSourcePaths(?Architecture $architecture): ?array
+    private function definedSourcePaths(Architecture $architecture): ?array
     {
-        $sourcePaths = $architecture?->getLayers()['Source'] ?? null;
+        $sourcePaths = $architecture->getLayers()['Source'] ?? null;
 
         if ($sourcePaths === null || $sourcePaths === []) {
             return null;
