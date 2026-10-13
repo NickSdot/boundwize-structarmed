@@ -10,7 +10,6 @@ return RectorConfig::configure()
         codeQuality: true,
         codingStyle: true,
         deadCode: true,
-        naming: true,
         privatization: true,
         typeDeclarations: true,
         typeDeclarationDocblocks: true,

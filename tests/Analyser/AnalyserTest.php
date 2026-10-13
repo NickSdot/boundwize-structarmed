@@ -33,6 +33,8 @@ use Boundwize\StructArmed\Rule\FileAnalysisRuleInterface;
 use Boundwize\StructArmed\Rule\FunctionRuleInterface;
 use Boundwize\StructArmed\Rule\RuleInterface;
 use Boundwize\StructArmed\Rule\Rules\Class_\AnonymousClassMayNotHaveEmptyParenthesesRule;
+use Boundwize\StructArmed\Rule\Rules\Class_\MayNotExtendClassRule;
+use Boundwize\StructArmed\Rule\Rules\Class_\MayNotImplementInterfaceRule;
 use Boundwize\StructArmed\Rule\Rules\Class_\MustBeFinalRule;
 use Boundwize\StructArmed\Rule\Rules\Composer\Psr4SourcePathsRule;
 use Boundwize\StructArmed\Rule\Rules\File\Psr1PhpTagsRule;
@@ -5948,18 +5950,81 @@ final class AnalyserTest extends TestCase
 
                 namespace App\Contracts;
 
-                interface Second extends First
+                interface Second extends Third
+                {
+                }
+                PHP,
+            'src/Contracts/Third.php'  => <<<'PHP'
+                <?php
+
+                namespace App\Contracts;
+
+                interface Third extends First
                 {
                 }
                 PHP,
         ]);
 
         $architecture = Architecture::define()
-            ->layer('Source', 'src/');
+            ->layer('Source', 'src/')
+            ->rule('source.no_third', new MayNotImplementInterfaceRule('Source', 'App\\Contracts\\Third'));
 
         $ruleViolationCollection = (new Analyser($basePath))->analyse($architecture);
 
-        $this->assertFalse($ruleViolationCollection->hasViolations());
+        $classes = array_map(
+            static fn(RuleViolation $ruleViolation): string => $ruleViolation->className,
+            $ruleViolationCollection->forRule('source.no_third')
+        );
+        sort($classes);
+
+        $this->assertSame(['App\\Contracts\\First', 'App\\Contracts\\Second'], $classes);
+    }
+
+    public function testAnalyserStopsResolvingCyclicClassParents(): void
+    {
+        $basePath = $this->makeTempProject([
+            'src/Models/First.php'  => <<<'PHP'
+                <?php
+
+                namespace App\Models;
+
+                class First extends Second
+                {
+                }
+                PHP,
+            'src/Models/Second.php' => <<<'PHP'
+                <?php
+
+                namespace App\Models;
+
+                class Second extends Third
+                {
+                }
+                PHP,
+            'src/Models/Third.php'  => <<<'PHP'
+                <?php
+
+                namespace App\Models;
+
+                class Third extends First
+                {
+                }
+                PHP,
+        ]);
+
+        $architecture = Architecture::define()
+            ->layer('Source', 'src/')
+            ->rule('source.no_third', new MayNotExtendClassRule('Source', 'App\\Models\\Third'));
+
+        $ruleViolationCollection = (new Analyser($basePath))->analyse($architecture);
+
+        $classes = array_map(
+            static fn(RuleViolation $ruleViolation): string => $ruleViolation->className,
+            $ruleViolationCollection->forRule('source.no_third')
+        );
+        sort($classes);
+
+        $this->assertSame(['App\\Models\\First', 'App\\Models\\Second'], $classes);
     }
 
     public function testAnalyserRulesetAllowsSameLayerDependencies(): void
