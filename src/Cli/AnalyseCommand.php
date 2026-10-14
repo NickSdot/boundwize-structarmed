@@ -25,7 +25,6 @@ use Boundwize\StructArmed\Rule\RuleViolationCollection;
 use Boundwize\StructArmed\Util\Path;
 use RuntimeException;
 
-use function array_shift;
 use function count;
 use function explode;
 use function in_array;
@@ -361,9 +360,12 @@ final readonly class AnalyseCommand
         $fixedCount = 0;
 
         foreach ($architecture->getRules() as $ruleKey => $rule) {
-            $ruleViolations = $ruleViolationCollection->forRule($ruleKey);
+            if (! $rule instanceof FixableInterface) {
+                continue;
+            }
 
-            if (! $rule instanceof FixableInterface || $ruleViolations === []) {
+            $ruleViolations = $ruleViolationCollection->forRule($ruleKey);
+            if ($ruleViolations === []) {
                 continue;
             }
 
@@ -387,11 +389,8 @@ final readonly class AnalyseCommand
             }
 
             foreach ($violationsByFile as $violations) {
-                $batchSize      = count($violations);
-                $firstViolation = array_shift($violations);
-
-                if ($rule->fix($firstViolation, ...$violations)) {
-                    $fixedCount += $batchSize;
+                if ($rule->fix(...$violations)) {
+                    $fixedCount += count($violations);
                 }
             }
         }
