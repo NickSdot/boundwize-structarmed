@@ -17,12 +17,14 @@ use Boundwize\StructArmed\Analyser\PropertyNode;
 use Boundwize\StructArmed\Composer\ComposerJsonProvider;
 use Boundwize\StructArmed\Rule\RuleViolation;
 use Boundwize\StructArmed\Rule\RuleViolationCollection;
+use FilesystemIterator;
 
 use function array_fill_keys;
 use function array_is_list;
 use function array_keys;
 use function array_map;
 use function array_values;
+use function basename;
 use function count;
 use function file_exists;
 use function file_get_contents;
@@ -32,12 +34,14 @@ use function hash;
 use function is_array;
 use function is_bool;
 use function is_dir;
+use function is_file;
 use function is_float;
 use function is_int;
 use function is_string;
 use function json_decode;
 use function json_encode;
 use function mkdir;
+use function preg_match;
 use function rmdir;
 use function rtrim;
 use function sprintf;
@@ -148,16 +152,36 @@ final class AnalysisResultCache
             return;
         }
 
+        // Only remove files the cache writes itself, so a cache directory shared
+        // with other files keeps them:
+        //
+        // - _metadata.json
+        // - 8679959e514dd177bc6fd1830ee55b48.json                violation payloads
+        // - analysis-nodes-0a489b7052209b1aa6ce9a7c07ce0627.json per-file payloads (0.17.0+)
+        // - class-nodes-0a489b7052209b1aa6ce9a7c07ce0627.json    per-file payloads (pre 0.17.0: to be cleared later)
+        // - structarmed-worker-*                                 worker temp files left by an interrupted run
         foreach (glob($this->cacheDirectory . '/*', GLOB_NOSORT) ?: [] as $path) {
-            if (is_dir($path)) {
-                rmdir($path);
+            if (! is_file($path)) {
                 continue;
             }
 
-            unlink($path);
+            $filename = basename($path);
+            if (
+                $filename === self::METADATA_FILE
+                || preg_match(
+                    '/^(?:(?:analysis-nodes-|class-nodes-)?[a-f0-9]{32}\.json|structarmed-worker-.+)$/',
+                    $filename,
+                ) === 1
+            ) {
+                unlink($path);
+            }
         }
 
-        rmdir($this->cacheDirectory);
+        // only remove the cache directory if it is empty
+        $fileSystemIterator = new FilesystemIterator($this->cacheDirectory);
+        if (! $fileSystemIterator->valid()) {
+            rmdir($this->cacheDirectory);
+        }
     }
 
     public function getCacheDirectory(): string

@@ -73,7 +73,7 @@ final class StructArmedApplicationTest extends TestCase
             mkdir($basePath . '/var/cache');
             mkdir($cacheDirectory);
 
-            file_put_contents($cacheDirectory . '/key.json', '{}');
+            file_put_contents($cacheDirectory . '/_metadata.json', '{}');
             file_put_contents($basePath . '/structarmed-custom.php', <<<'PHP'
 <?php
 
@@ -108,7 +108,7 @@ PHP);
             mkdir($toolsPath, 0777, true);
             mkdir($cacheDirectory, 0777, true);
 
-            file_put_contents($cacheDirectory . '/key.json', '{}');
+            file_put_contents($cacheDirectory . '/_metadata.json', '{}');
             file_put_contents($toolsPath . '/structarmed.php', <<<'PHP'
 <?php
 
@@ -143,7 +143,7 @@ PHP);
             mkdir($basePath . '/var/cache');
             mkdir($cacheDirectory);
 
-            file_put_contents($cacheDirectory . '/key.json', '{}');
+            file_put_contents($cacheDirectory . '/_metadata.json', '{}');
             file_put_contents($basePath . '/structarmed-custom.php', <<<'PHP'
 <?php
 
