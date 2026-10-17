@@ -61,4 +61,5 @@ return Architecture::define()
     ->rule(
         'source.must_be_final',
         new MustBeFinalRule(layer: 'Source')
-    );
+    )
+    ->cacheDirectory(__DIR__ . '/cache');
