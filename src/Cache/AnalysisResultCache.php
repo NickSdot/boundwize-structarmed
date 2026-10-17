@@ -158,7 +158,7 @@ final class AnalysisResultCache
         // - _metadata.json
         // - 8679959e514dd177bc6fd1830ee55b48.json                violation payloads
         // - analysis-nodes-0a489b7052209b1aa6ce9a7c07ce0627.json per-file payloads (0.17.0+)
-        // - class-nodes-0a489b7052209b1aa6ce9a7c07ce0627.json    per-file payloads (pre 0.17.0)
+        // - class-nodes-0a489b7052209b1aa6ce9a7c07ce0627.json    per-file payloads (pre 0.17.0: to be cleared later)
         // - structarmed-worker-*                                 worker temp files left by an interrupted run
         foreach (glob($this->cacheDirectory . '/*', GLOB_NOSORT) ?: [] as $path) {
             if (! is_file($path)) {
