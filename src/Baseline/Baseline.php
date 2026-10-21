@@ -22,14 +22,12 @@ use function is_dir;
 use function is_int;
 use function is_scalar;
 use function json_encode;
-use function ksort;
 use function rtrim;
 use function sprintf;
 use function str_replace;
 
 use const JSON_INVALID_UTF8_SUBSTITUTE;
 use const JSON_UNESCAPED_SLASHES;
-use const SORT_STRING;
 
 final readonly class Baseline
 {
@@ -100,8 +98,7 @@ final readonly class Baseline
                 'class'   => $violation->className,
                 'layer'   => $violation->layer,
             ];
-            // File first, so sorting the keys groups each file's entries together.
-            $key = $relativeFile . "\0" . json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+            $key          = (string) json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
 
             // Identical violations share one entry with a count, written only when above 1.
             if (isset($violations[$key])) {
@@ -112,9 +109,6 @@ final readonly class Baseline
 
             $violations[$key] = $entry;
         }
-
-        // Violation order varies between cold runs, so sort for a stable, diff-friendly baseline.
-        ksort($violations, SORT_STRING);
 
         $header = "<?php\n\n"
             . "declare(strict_types=1);\n\n";
