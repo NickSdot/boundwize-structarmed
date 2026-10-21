@@ -140,8 +140,8 @@ PHP, file_get_contents($basePath . '/baseline.php'));
 
             PHP);
 
-        $ruleViolationCollection->add($this->keywordConstantViolation($basePath . '/src/Foo.php', 3));
         $ruleViolationCollection->add($this->violation($basePath . '/src/Foo.php'));
+        $ruleViolationCollection->add($this->keywordConstantViolation($basePath . '/src/Foo.php', 3));
         $ruleViolationCollection->add($this->keywordConstantViolation($basePath . '/src/Foo.php', 4));
 
         try {
