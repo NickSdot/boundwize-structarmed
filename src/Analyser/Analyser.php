@@ -1140,21 +1140,26 @@ final readonly class Analyser
 
         foreach ($extractionResult->fileReferences as $references) {
             foreach ($references as $reference) {
-                $referenceKey = strtolower(AnalysisNodeCollector::parseFunctionReference($reference) ?? $reference);
+                $referenceKey      = strtolower($reference);
+                $functionReference = AnalysisNodeCollector::parseFunctionReference($referenceKey);
 
-                if (isset($used[$referenceKey])) {
+                if ($functionReference !== null) {
+                    $used[$functionReference] = true;
+
+                    continue;
+                }
+
+                $namespacedName = AnalysisNodeCollector::parseFunctionFallbackMarker($referenceKey);
+
+                // Plain names are class references. Callable-name strings
+                // also carry a function marker, collected separately.
+                if ($namespacedName === null || isset($used[$referenceKey])) {
                     continue;
                 }
 
                 // Remember markers too, so repeated file references only
                 // resolve their namespace/global fallback once per run.
-                $used[$referenceKey] = true;
-                $namespacedName      = AnalysisNodeCollector::parseFunctionFallbackMarker($referenceKey);
-
-                if ($namespacedName === null) {
-                    continue;
-                }
-
+                $used[$referenceKey]   = true;
                 $used[$namespacedName] = true;
 
                 if (! isset($declared[$namespacedName])) {

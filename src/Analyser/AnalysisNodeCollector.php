@@ -1172,6 +1172,8 @@ final class AnalysisNodeCollector extends NodeVisitorAbstract
                 && ! isset(self::KEYWORD_CONSTANTS[strtolower($value)])
             ) {
                 $this->currentFileReferences[$value] = true;
+                // A name-shaped string can also be invoked as a callable.
+                $this->currentFileReferences[self::FUNCTION_REFERENCE_PREFIX . $value] = true;
             }
 
             return;

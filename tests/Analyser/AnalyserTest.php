@@ -2526,6 +2526,63 @@ final class AnalyserTest extends TestCase
         $this->assertSame('App\ConnectionPool', $violations[0]->className);
     }
 
+    public function testYagniDoesNotTreatClassTypeHintAsFunctionUsage(): void
+    {
+        $basePath     = $this->makeTempProject([
+            'src/symbols.php' => <<<'PHP'
+                <?php
+                namespace App;
+
+                interface Shared {}
+                interface Checked {}
+                interface Named {}
+                class Created {}
+                interface StringReference {}
+                function Shared(): void {}
+                function Checked(): void {}
+                function Named(): void {}
+                function Created(): void {}
+                function StringReference(): void {}
+                function guarded(): void {}
+                PHP,
+            'src/calls.php'   => <<<'PHP'
+                <?php
+                namespace App;
+
+                function consume(Shared $value): void
+                {
+                    $value instanceof Checked;
+                    echo Named::class;
+                    new Created();
+                }
+                consume();
+                $callable = '\App\StringReference';
+                $callable();
+                function_exists('App\guarded');
+                PHP,
+        ]);
+        $architecture = Architecture::define()->withPreset(Preset::YAGNI(sourcePaths: ['src/']));
+
+        foreach ([AnalyserOptions::sequential(), AnalyserOptions::parallel(2)] as $options) {
+            $analysisResultCache = new AnalysisResultCache($basePath, new FileHashProvider(), 'cache');
+            $analysisResultCache->clear();
+
+            foreach ([null, $analysisResultCache, $analysisResultCache] as $cache) {
+                $violations = (new Analyser($basePath, $cache, 'config'))
+                    ->analyse($architecture, [], null, $options);
+
+                $this->assertSame(
+                    ['App\Checked', 'App\Created', 'App\Named', 'App\Shared', 'App\guarded'],
+                    $this->violationClassNames($violations->forRule(YagniPreset::FUNCTION_MUST_BE_USED))
+                );
+                $this->assertSame(
+                    [],
+                    $this->violationClassNames($violations->forRule(YagniPreset::INTERFACE_MUST_BE_USED))
+                );
+            }
+        }
+    }
+
     public function testYagniDistinguishesFunctionAndConstantReferencesFromClassLikes(): void
     {
         $basePath     = $this->makeTempProject([

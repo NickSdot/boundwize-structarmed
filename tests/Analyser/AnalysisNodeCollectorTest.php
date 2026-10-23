@@ -287,7 +287,7 @@ PHP);
         $analysisNodeCollector = $this->makeCollector($code);
 
         $this->assertSame(
-            ['/fake/path/Foo.php' => ['App\Contract']],
+            ['/fake/path/Foo.php' => ['App\Contract', '!App\Contract']],
             $analysisNodeCollector->getFileReferences()
         );
     }
@@ -303,7 +303,7 @@ PHP);
         // name drops the leading separator so it matches ClassNode::$className.
         // The top-level call itself is recorded as a fallback marker.
         $this->assertSame(
-            ['/fake/path/Foo.php' => ['?App\interface_exists', 'App\Contract']],
+            ['/fake/path/Foo.php' => ['?App\interface_exists', 'App\Contract', '!App\Contract']],
             $analysisNodeCollector->getFileReferences()
         );
     }
@@ -364,7 +364,14 @@ PHP);
         // guard call and the in-function calls themselves are recorded as
         // fallback markers.
         $this->assertSame(
-            ['/fake/path/Foo.php' => ['?App\function_exists', 'App\kept_helper', '?App\is_callable']],
+            [
+                '/fake/path/Foo.php' => [
+                    '?App\function_exists',
+                    'App\kept_helper',
+                    '!App\kept_helper',
+                    '?App\is_callable',
+                ],
+            ],
             $analysisNodeCollector->getFileReferences()
         );
     }
