@@ -215,6 +215,42 @@ PHP);
         return $analysisNodeCollector;
     }
 
+    public function testSeparatesResolvedFunctionReferencesFromClassReferences(): void
+    {
+        $collector = $this->makeCollector(<<<'PHP'
+            <?php
+            namespace App;
+            use function Other\Imported;
+            use const Other\VALUE;
+
+            \App\Direct();
+            Imported(...);
+            echo \App\VALUE, VALUE;
+            function run(\App\Contract $value): void
+            {
+                \App\Inside();
+                $value instanceof \App\Checked;
+                echo \App\Named::class;
+                new \App\Created();
+            }
+            PHP);
+
+        $this->assertSame([
+            '/fake/path/Foo.php' => [
+                '!App\Direct',
+                '!Other\Imported',
+                'App\Contract',
+                '!App\Inside',
+                'App\Checked',
+                'App\Named',
+                'App\Created',
+            ],
+        ], $collector->getFileReferences());
+        $this->assertSame(['App\Inside'], $collector->getFunctionNodes()[0]->functionCalls);
+        $this->assertSame('App\Direct', AnalysisNodeCollector::parseFunctionReference('!App\Direct'));
+        $this->assertNull(AnalysisNodeCollector::parseFunctionReference('App\Direct'));
+    }
+
     public function testCollectsFileReferencesFromProceduralCode(): void
     {
         $code = '<?php namespace App;' . "\n"
@@ -386,7 +422,7 @@ PHP);
         // file marker stands for this file's helper() calls, so the
         // fully-qualified \helper() is also referenced by name.
         $this->assertSame(
-            ['/fake/path/Foo.php' => ['?App\helper', 'helper']],
+            ['/fake/path/Foo.php' => ['?App\helper', '!helper']],
             $analysisNodeCollector->getFileReferences()
         );
         $this->assertSame(
@@ -464,8 +500,8 @@ PHP);
         $this->assertSame(['?App\helper', 'helper'], $nodes[1]->functionCalls);
         $this->assertSame(['?App\helper', 'helper'], $nodes[2]->functionCalls);
         $this->assertSame([
-            '/fake/path/Caller1.php' => ['?App\helper', 'helper'],
-            '/fake/path/Caller2.php' => ['?App\helper', 'helper'],
+            '/fake/path/Caller1.php' => ['?App\helper', '!helper'],
+            '/fake/path/Caller2.php' => ['?App\helper', '!helper'],
         ], $analysisNodeCollector->getFileReferences());
     }
 

@@ -825,7 +825,7 @@ final readonly class Analyser
      * marking.
      *
      * @param list<string>        $dependencies
-     * @param array<string|null>  $clauseNames  The node's own name, if any, and its extends, implements, and traits
+     * @param array<string|null>  $clauseNames  Structural names and dependencies used only as functions or constants
      * @param array<string, true> $used
      */
     private function markDependenciesUsed(array $dependencies, array $clauseNames, array &$used): void
@@ -890,6 +890,7 @@ final readonly class Analyser
                     ...$classNode->implements,
                     ...$classNode->interfaceExtends,
                     ...$classNode->traits,
+                    ...$classNode->nonClassDependencies,
                 ],
                 $used,
             );
@@ -915,7 +916,12 @@ final readonly class Analyser
 
             $this->markDependenciesUsed(
                 $anonymousClassNode->dependencies,
-                [$anonymousClassNode->extends, ...$anonymousClassNode->implements, ...$anonymousClassNode->traits],
+                [
+                    $anonymousClassNode->extends,
+                    ...$anonymousClassNode->implements,
+                    ...$anonymousClassNode->traits,
+                    ...$anonymousClassNode->nonClassDependencies,
+                ],
                 $used,
             );
         }
@@ -1134,7 +1140,7 @@ final readonly class Analyser
 
         foreach ($extractionResult->fileReferences as $references) {
             foreach ($references as $reference) {
-                $referenceKey = strtolower($reference);
+                $referenceKey = strtolower(AnalysisNodeCollector::parseFunctionReference($reference) ?? $reference);
 
                 if (isset($used[$referenceKey])) {
                     continue;
