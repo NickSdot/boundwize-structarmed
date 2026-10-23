@@ -1695,13 +1695,13 @@ final class AnalysisNodeCollector extends NodeVisitorAbstract
             layers:                $layers,
             isReadonly:            $class->isReadonly(),
             dependencies:          $analysis['dependencies'],
-            nonClassDependencies:  $analysis['nonClassDependencies'],
             methods:               $analysis['methods'],
             constants:             $analysis['constants'],
             properties:            $analysis['properties'],
             functionCalls:         $analysis['functionCalls'],
             superglobals:          $analysis['superglobals'],
             languageConstructs:    $analysis['languageConstructs'],
+            nonClassDependencies:  $analysis['nonClassDependencies'],
         );
     }
 

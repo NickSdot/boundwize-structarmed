@@ -682,13 +682,13 @@ final class AnalysisResultCache
                 layers:                array_values($layers),
                 isReadonly:            $isReadonly,
                 dependencies:          array_values($dependencies),
-                nonClassDependencies:  array_values($nonClassDependencies),
                 methods:               $methods,
                 constants:             $constants,
                 properties:            $properties,
                 functionCalls:         array_values($functionCalls),
                 superglobals:          array_values($superglobals),
                 languageConstructs:    array_values($languageConstructs),
+                nonClassDependencies:  array_values($nonClassDependencies),
             );
         }
 
