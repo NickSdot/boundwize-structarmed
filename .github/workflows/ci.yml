@@ -57,6 +57,15 @@ jobs:
       - name: Run PHPStan
         run: composer phpstan
 
+      - name: Rector Cache
+        uses: actions/cache@v6
+        with:
+          path: /tmp/rector
+          key: rector-${{ hashFiles('**/*.php', 'composer.json') }}
+          restore-keys: rector-
+
+      - run: mkdir -p /tmp/rector
+
       - name: Run Rector (dry-run)
         run: composer rector
 
