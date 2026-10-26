@@ -15,6 +15,7 @@ use Boundwize\StructArmed\Cache\CachePathFactory;
 use Boundwize\StructArmed\Progress\ProgressHandlerInterface;
 use RuntimeException;
 
+use function array_column;
 use function array_fill;
 use function array_key_exists;
 use function array_pop;
@@ -40,12 +41,13 @@ use function mkdir;
 use function proc_close;
 use function serialize;
 use function sprintf;
+use function stream_select;
 use function stream_set_blocking;
 use function unlink;
 use function unserialize;
-use function usleep;
 
 use const PHP_BINARY;
+use const PHP_OS_FAMILY;
 
 /**
  * @internal
@@ -175,8 +177,18 @@ final readonly class ParallelAnalysisNodeExtractor
         $anonymousFunctionNodes = [];
         $failures               = [];
 
+        // Windows cannot select a proc_open() pipe, fread() in the loop waits for the worker there, as before.
+        $canSelect = PHP_OS_FAMILY !== 'Windows';
+
         while ($pending !== []) {
-            $anyActivity = false;
+            if ($canSelect) {
+                $read   = array_column($pending, 'stdoutPipe');
+                $write  = null;
+                $except = null;
+
+                // Blocks until a worker reports progress or exits.
+                stream_select($read, $write, $except, null);
+            }
 
             foreach ($pending as $key => $worker) {
                 $stdoutPipe = $worker['stdoutPipe'];
@@ -194,8 +206,6 @@ final readonly class ParallelAnalysisNodeExtractor
                             $progressHandler?->advance($file);
                         }
                     }
-
-                    $anyActivity = true;
                 }
 
                 if (! feof($stdoutPipe)) {
@@ -298,11 +308,6 @@ final readonly class ParallelAnalysisNodeExtractor
                 }
 
                 unset($pending[$key]);
-                $anyActivity = true;
-            }
-
-            if (! $anyActivity) {
-                usleep(5000);
             }
         }
 

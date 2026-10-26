@@ -22,6 +22,7 @@ use function is_dir;
 use function random_bytes;
 use function rmdir;
 use function sort;
+use function sprintf;
 use function sys_get_temp_dir;
 use function unlink;
 
@@ -267,6 +268,105 @@ PHP);
 
         $this->assertSame(0, $progress->total);
         $this->assertSame([], $progress->files);
+    }
+
+    public function testExtractAcrossWorkersWithAndWithoutProgress(): void
+    {
+        $dir   = $this->makeTemporaryDirectory('structarmed-parallel-test');
+        $files = [];
+
+        for ($index = 0; $index < 6; ++$index) {
+            $file = sprintf('%s/Foo%d.php', $dir, $index);
+            file_put_contents($file, sprintf('<?php namespace App; final class Foo%d {}', $index));
+
+            $files[] = $file;
+        }
+
+        $progress = new class implements ProgressHandlerInterface {
+            public int $total = -1;
+
+            /** @var list<string> */
+            public array $files = [];
+
+            public function start(int $total): void
+            {
+                $this->total = $total;
+            }
+
+            public function advance(string $file): void
+            {
+                $this->files[] = $file;
+            }
+
+            public function finish(): void
+            {
+            }
+        };
+
+        $parallelAnalysisNodeExtractor = new ParallelAnalysisNodeExtractor($dir, [], [], 3);
+
+        $this->assertCount(6, $parallelAnalysisNodeExtractor->extract($files)->classNodes);
+        $this->assertCount(6, $parallelAnalysisNodeExtractor->extract($files, $progress)->classNodes);
+
+        sort($progress->files);
+
+        $this->assertSame(6, $progress->total);
+        $this->assertSame($files, $progress->files);
+    }
+
+    public function testExtractBuffersProgressLineSplitAcrossReads(): void
+    {
+        // Simulates a worker whose progress lines reach the coordinator in pieces: index 10 arrives as "1" then
+        // "0\n", index 3 as "3" then "\n".
+        $GLOBALS['mock_proc_open_command']         = [
+            PHP_BINARY,
+            '-r',
+            'fwrite(STDOUT, "2\n1"); usleep(50000); fwrite(STDOUT, "0\n3"); usleep(50000); fwrite(STDOUT, "\n");',
+        ];
+        $GLOBALS['mock_file_get_contents_payload'] = ['nodes' => [], 'error' => null];
+
+        $dir   = $this->makeTemporaryDirectory('structarmed-parallel-test');
+        $files = [];
+
+        // same size files keep their order in the single worker's chunk
+        for ($index = 0; $index < 11; ++$index) {
+            $file = sprintf('%s/Foo%02d.php', $dir, $index);
+            file_put_contents($file, '<?php');
+
+            $files[] = $file;
+        }
+
+        $progress = new class implements ProgressHandlerInterface {
+            public int $total = -1;
+
+            /** @var list<string> */
+            public array $files = [];
+
+            public function start(int $total): void
+            {
+                $this->total = $total;
+            }
+
+            public function advance(string $file): void
+            {
+                $this->files[] = $file;
+            }
+
+            public function finish(): void
+            {
+            }
+        };
+
+        try {
+            (new ParallelAnalysisNodeExtractor($dir, [], [], 1))->extract($files, $progress);
+        } finally {
+            $GLOBALS['mock_proc_open_command']         = null;
+            $GLOBALS['mock_file_get_contents_payload'] = null;
+            $GLOBALS['mock_tracked_tempnam_files']     = [];
+        }
+
+        $this->assertSame(2, $progress->total);
+        $this->assertSame([$files[10], $files[3]], $progress->files);
     }
 
     public function testExtractWithLayerPatternsUsesChainResolver(): void
