@@ -177,6 +177,7 @@ final readonly class ParallelAnalysisNodeExtractor
         $functionNodes          = [];
         $anonymousFunctionNodes = [];
         $failures               = [];
+        $initCanSelect          = ! $emitProgress && (PHP_OS_FAMILY !== 'Windows' || PHP_VERSION_ID >= 80500);
 
         while ($pending !== []) {
             $anyActivity = false;
@@ -185,7 +186,8 @@ final readonly class ParallelAnalysisNodeExtractor
             // 5ms poll batches a worker's lines instead of waking once per parsed file. Windows selects a proc_open()
             // pipe only by its data since PHP 8.5 (GH-16889); before, fread() in the loop waits for the worker there.
             // @see https://github.com/php/php-src/commit/b614b4a69ae7bab13c39af2f4a01dea846dfa307
-            $canSelect = ! $emitProgress && (PHP_OS_FAMILY !== 'Windows' || PHP_VERSION_ID >= 80500);
+            // always re-init $canSelect as it can be modified to false by stream_select() failure
+            $canSelect = $initCanSelect;
 
             if ($canSelect) {
                 $read   = array_map(static fn (array $worker): mixed => $worker['stdoutPipe'], $pending);
