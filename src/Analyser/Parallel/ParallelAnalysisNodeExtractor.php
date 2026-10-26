@@ -15,9 +15,9 @@ use Boundwize\StructArmed\Cache\CachePathFactory;
 use Boundwize\StructArmed\Progress\ProgressHandlerInterface;
 use RuntimeException;
 
-use function array_column;
 use function array_fill;
 use function array_key_exists;
+use function array_map;
 use function array_pop;
 use function array_push;
 use function array_search;
@@ -48,6 +48,7 @@ use function usleep;
 
 use const PHP_BINARY;
 use const PHP_OS_FAMILY;
+use const PHP_VERSION_ID;
 
 /**
  * @internal
@@ -181,12 +182,13 @@ final readonly class ParallelAnalysisNodeExtractor
             $anyActivity = false;
 
             // Without progress the only event is a worker exiting, so wait for it instead of polling; with progress the
-            // 5ms poll batches a worker's lines instead of waking once per parsed file. Windows cannot select a
-            // proc_open() pipe, fread() in the loop waits for the worker there, as before.
-            $canSelect = ! $emitProgress && PHP_OS_FAMILY !== 'Windows';
+            // 5ms poll batches a worker's lines instead of waking once per parsed file. Windows selects a proc_open()
+            // pipe only by its data since PHP 8.5 (GH-16889); before, fread() in the loop waits for the worker there.
+            // @see https://github.com/php/php-src/commit/b614b4a69ae7bab13c39af2f4a01dea846dfa307
+            $canSelect = ! $emitProgress && (PHP_OS_FAMILY !== 'Windows' || PHP_VERSION_ID >= 80500);
 
             if ($canSelect) {
-                $read   = array_column($pending, 'stdoutPipe');
+                $read   = array_map(static fn (array $worker): mixed => $worker['stdoutPipe'], $pending);
                 $write  = null;
                 $except = null;
 
@@ -198,6 +200,11 @@ final readonly class ParallelAnalysisNodeExtractor
             }
 
             foreach ($pending as $key => $worker) {
+                // Only selected workers are read: fread() on a Windows pipe waits until that worker writes or exits.
+                if ($canSelect && ! isset($read[$key])) {
+                    continue;
+                }
+
                 $stdoutPipe = $worker['stdoutPipe'];
 
                 $data = fread($stdoutPipe, 8192);
