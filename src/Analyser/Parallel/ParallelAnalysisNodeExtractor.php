@@ -41,7 +41,6 @@ use function mkdir;
 use function proc_close;
 use function serialize;
 use function sprintf;
-use function stream_select;
 use function stream_set_blocking;
 use function unlink;
 use function unserialize;
@@ -178,21 +177,24 @@ final readonly class ParallelAnalysisNodeExtractor
         $anonymousFunctionNodes = [];
         $failures               = [];
 
-        // Without progress the only event is a worker exiting, so wait for it instead of polling; with progress the
-        // 5ms poll batches a worker's lines instead of waking once per parsed file. Windows cannot select a
-        // proc_open() pipe, fread() in the loop waits for the worker there, as before.
-        $canSelect = ! $emitProgress && PHP_OS_FAMILY !== 'Windows';
-
         while ($pending !== []) {
             $anyActivity = false;
+
+            // Without progress the only event is a worker exiting, so wait for it instead of polling; with progress the
+            // 5ms poll batches a worker's lines instead of waking once per parsed file. Windows cannot select a
+            // proc_open() pipe, fread() in the loop waits for the worker there, as before.
+            $canSelect = ! $emitProgress && PHP_OS_FAMILY !== 'Windows';
 
             if ($canSelect) {
                 $read   = array_column($pending, 'stdoutPipe');
                 $write  = null;
                 $except = null;
 
-                // Blocks until a worker exits.
-                stream_select($read, $write, $except, null);
+                // Blocks until a worker exits; a failed select falls back to this pass' poll sleep.
+                // phpcs:disable SlevomatCodingStandard.Namespaces.ReferenceUsedNamesOnly.ReferenceViaFallbackGlobalName
+                // to avoid error in test that mock it
+                $canSelect = stream_select($read, $write, $except, null) !== false;
+                // phpcs:enable
             }
 
             foreach ($pending as $key => $worker) {

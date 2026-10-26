@@ -501,6 +501,25 @@ PHP);
         }
     }
 
+    public function testExtractFallsBackToPollingWhenStreamSelectFails(): void
+    {
+        $GLOBALS['mock_stream_select'] = true;
+
+        $dir   = $this->makeTemporaryDirectory('structarmed-parallel-test');
+        $file1 = $dir . '/Foo.php';
+        $file2 = $dir . '/Bar.php';
+        file_put_contents($file1, '<?php class Foo {}');
+        file_put_contents($file2, '<?php class Bar {}');
+
+        $parallelAnalysisNodeExtractor = new ParallelAnalysisNodeExtractor($dir, [], [], 2);
+
+        try {
+            $this->assertCount(2, $parallelAnalysisNodeExtractor->extract([$file1, $file2])->classNodes);
+        } finally {
+            $GLOBALS['mock_stream_select'] = false;
+        }
+    }
+
     public function testExtractReportsStderrWhenWorkerDiesBeforeWritingPayload(): void
     {
         // Simulates a worker killed by OOM / fatal error before AnalysisNodeWorker can serialize a result:
