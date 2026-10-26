@@ -45,6 +45,7 @@ use function stream_select;
 use function stream_set_blocking;
 use function unlink;
 use function unserialize;
+use function usleep;
 
 use const PHP_BINARY;
 use const PHP_OS_FAMILY;
@@ -177,16 +178,20 @@ final readonly class ParallelAnalysisNodeExtractor
         $anonymousFunctionNodes = [];
         $failures               = [];
 
-        // Windows cannot select a proc_open() pipe, fread() in the loop waits for the worker there, as before.
-        $canSelect = PHP_OS_FAMILY !== 'Windows';
+        // Without progress the only event is a worker exiting, so wait for it instead of polling; with progress the
+        // 5ms poll batches a worker's lines instead of waking once per parsed file. Windows cannot select a
+        // proc_open() pipe, fread() in the loop waits for the worker there, as before.
+        $canSelect = ! $emitProgress && PHP_OS_FAMILY !== 'Windows';
 
         while ($pending !== []) {
+            $anyActivity = false;
+
             if ($canSelect) {
                 $read   = array_column($pending, 'stdoutPipe');
                 $write  = null;
                 $except = null;
 
-                // Blocks until a worker reports progress or exits.
+                // Blocks until a worker exits.
                 stream_select($read, $write, $except, null);
             }
 
@@ -206,6 +211,8 @@ final readonly class ParallelAnalysisNodeExtractor
                             $progressHandler?->advance($file);
                         }
                     }
+
+                    $anyActivity = true;
                 }
 
                 if (! feof($stdoutPipe)) {
@@ -308,6 +315,11 @@ final readonly class ParallelAnalysisNodeExtractor
                 }
 
                 unset($pending[$key]);
+                $anyActivity = true;
+            }
+
+            if (! $anyActivity && ! $canSelect) {
+                usleep(5000);
             }
         }
 
