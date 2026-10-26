@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Rector\Caching\ValueObject\Storage\FileCacheStorage;
 use Rector\Config\RectorConfig;
 use Rector\TypeDeclarationDocblocks\Rector\Property\MergePhpstanDocTagIntoNativeRector;
 
@@ -24,9 +23,4 @@ return RectorConfig::configure()
     ->withImportNames(removeUnusedImports: true)
     ->withSkip([
         MergePhpstanDocTagIntoNativeRector::class,
-    ])
-    ->withCache(
-        // Github action cache or local
-        is_dir('/tmp') ? '/tmp/rector' : null,
-        FileCacheStorage::class,
-    );
+    ]);
